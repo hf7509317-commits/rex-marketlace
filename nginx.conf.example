@@ -1,0 +1,28 @@
+# Replace DOMAIN and certificate paths. Validate with sudo nginx -t.
+# If a tunnel terminates TLS upstream, use the alternative below, not this block.
+server {
+ listen 80; server_name DOMAIN;
+ location / { return 301 https://$host$request_uri; }
+}
+server {
+ listen 443 ssl; server_name DOMAIN;
+ ssl_certificate /etc/letsencrypt/live/DOMAIN/fullchain.pem;
+ ssl_certificate_key /etc/letsencrypt/live/DOMAIN/privkey.pem;
+ root /opt/rexmarket/web/dist; index index.html;
+ add_header X-Content-Type-Options nosniff always;
+ add_header Referrer-Policy no-referrer always;
+ add_header X-Frame-Options DENY always;
+ add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" always;
+ location /api/ {
+  client_max_body_size 6m;
+  proxy_pass http://127.0.0.1:3000/;
+  proxy_set_header Host $host;
+  proxy_set_header Origin $http_origin;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_buffering off;
+  proxy_read_timeout 90s;
+ }
+ location / { try_files $uri $uri/ /index.html; }
+ location ~ /\. { deny all; }
+}

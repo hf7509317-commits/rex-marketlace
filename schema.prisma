@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum Role {
+  CUSTOMER
+  RESELLER
+  ADMIN
+  SUPER_ADMIN
+}
+enum OrderStatus {
+  AWAITING_PAYMENT
+  PENDING_REVIEW
+  REJECTED
+  PAID
+  CANCELLED
+}
+enum OrderKind {
+  PRODUCT
+  PLAN
+}
+enum ProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String
+  role Role @default(CUSTOMER)
+  active Boolean @default(true)
+  displayName String @default("")
+  storeName String @default("")
+  telegramId String? @unique
+  createdAt DateTime @default(now())
+  sessions Session[]
+  products Product[]
+  orders Order[]
+  commissions Commission[]
+  subscriptions Subscription[]
+}
+model Session {
+  id String @id @default(cuid())
+  tokenHash String @unique
+  csrfToken String
+  expiresAt DateTime
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
+}
+model Product {
+  id String @id @default(cuid())
+  sellerId String
+  seller User @relation(fields: [sellerId], references: [id])
+  title String
+  description String @default("")
+  category String @default("Umum")
+  price Int
+  stock Int @default(0)
+  approved Boolean @default(false)
+  active Boolean @default(true)
+  platformFeeBps Int @default(1000)
+  createdAt DateTime @default(now())
+  items OrderItem[]
+  inventory DigitalUnit[]
+}
+model DigitalUnit {
+  id String @id @default(cuid())
+  productId String
+  product Product @relation(fields: [productId], references: [id])
+  ciphertext String
+  consumed Boolean @default(false)
+  deliveredOrderId String?
+  deliveredBuyerId String?
+  createdAt DateTime @default(now())
+  @@index([productId, consumed])
+  @@index([deliveredOrderId, deliveredBuyerId])
+}
+model Plan {
+  id String @id @default(cuid())
+  name String @unique
+  price Int
+  durationDays Int?
+  productLimit Int
+  platformFeeBps Int
+  active Boolean @default(true)
+  orders Order[]
+  subscriptions Subscription[]
+}
+model Subscription {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  planId String
+  plan Plan @relation(fields: [planId], references: [id])
+  orderId String @unique
+  startsAt DateTime @default(now())
+  expiresAt DateTime?
+  productLimit Int
+  platformFeeBps Int
+  revoked Boolean @default(false)
+  @@index([userId, revoked])
+}
+model Order {
+  id String @id @default(cuid())
+  buyerId String
+  buyer User @relation(fields: [buyerId], references: [id])
+  requestKey String
+  kind OrderKind @default(PRODUCT)
+  planId String?
+  plan Plan? @relation(fields: [planId], references: [id])
+  planSnapshot Json?
+  promoCode String?
+  status OrderStatus @default(AWAITING_PAYMENT)
+  total Int
+  createdAt DateTime @default(now())
+  paidAt DateTime?
+  items OrderItem[]
+  proofs PaymentProof[]
+  @@unique([buyerId, requestKey])
+}
+model OrderItem {
+  id String @id @default(cuid())
+  orderId String
+  order Order @relation(fields: [orderId], references: [id])
+  productId String
+  product Product @relation(fields: [productId], references: [id])
+  sellerIdSnapshot String
+  titleSnapshot String
+  priceSnapshot Int
+  platformFeeBpsSnapshot Int
+  quantity Int
+  commission Commission?
+}
+model PaymentProof {
+  id String @id @default(cuid())
+  orderId String
+  order Order @relation(fields: [orderId], references: [id])
+  version Int
+  storageKey String
+  status ProofStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+  reviewerId String?
+  rejectionReason String?
+  @@unique([orderId, version])
+}
+model Commission {
+  id String @id @default(cuid())
+  itemId String @unique
+  item OrderItem @relation(fields: [itemId], references: [id])
+  sellerId String
+  seller User @relation(fields: [sellerId], references: [id])
+  gross Int
+  platformFee Int
+  net Int
+  createdAt DateTime @default(now())
+}
+model Media {
+  id String @id @default(cuid())
+  key String @unique
+  ownerId String
+  mime String
+  size Int
+  public Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+model Setting {
+  key String @id
+  value Json
+  updatedAt DateTime @updatedAt
+}
+model Promo {
+  code String @id
+  percent Int
+  expiresAt DateTime
+  active Boolean @default(true)
+}
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  message String
+  createdAt DateTime @default(now())
+  readAt DateTime?
+  @@index([userId, createdAt])
+}
+model AuditLog {
+  id String @id @default(cuid())
+  actorId String
+  action String
+  resourceId String
+  details Json
+  createdAt DateTime @default(now())
+}
+model Outbox {
+  id String @id @default(cuid())
+  key String @unique
+  topic String
+  payload Json
+  createdAt DateTime @default(now())
+  sentAt DateTime?
+  attempts Int @default(0)
+  lockedUntil DateTime?
+  lastError String?
+  @@index([sentAt, lockedUntil])
+}
+model LoginThrottle {
+  key String @id
+  failures Int @default(0)
+  windowStart DateTime @default(now())
+}
+model PasswordReset {
+  id String @id @default(cuid())
+  userId String
+  tokenHash String @unique
+  expiresAt DateTime
+  usedAt DateTime?
+}
+model BotConversation {
+  key String @id
+  actorId String
+  action String
+  payload Json
+  expiresAt DateTime
+}
+model TelegramLink {
+  tokenHash String @id
+  userId String
+  expiresAt DateTime
+}
+model BootstrapMarker {
+  id String @id
+  createdAt DateTime @default(now())
+}

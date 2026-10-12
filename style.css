@@ -1,0 +1,5 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base { body{@apply bg-slate-950 text-slate-100;} button{@apply rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-500 disabled:opacity-40;} input,textarea,select{@apply w-full rounded-lg border border-slate-600 bg-slate-900 p-3 text-slate-100;} label{@apply block space-y-1 text-sm;} h1{@apply text-2xl font-bold;} h2{@apply text-xl font-semibold;} a{@apply text-indigo-300 underline;} pre{@apply overflow-auto whitespace-pre-wrap break-all text-xs;} }
+@layer components {.panel{@apply rounded-xl border border-slate-700 bg-slate-900 p-5;} .grid-cards{@apply grid gap-4 md:grid-cols-2 xl:grid-cols-3;} .muted{@apply text-sm text-slate-400;} }

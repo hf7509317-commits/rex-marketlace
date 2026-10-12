@@ -1,0 +1,45 @@
+name: Validate release candidate
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rexmarket_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: rexmarket_test
+        # Disposable CI ONLY. Never use trust authentication on a production server.
+        ports: ["127.0.0.1:5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rexmarket_ci -d rexmarket_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://rexmarket_ci@127.0.0.1:5432/rexmarket_test?schema=public
+      WEB_ORIGIN: http://localhost:5173
+      STORAGE_ROOT: ./storage-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ephemeral encryption key
+        run: echo "DELIVERY_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - name: Require reviewed lockfiles
+        run: test -f package-lock.json && test -f web/package-lock.json
+      - run: npm ci
+      - run: npm --prefix web ci
+      - run: npm run db:generate
+      - run: npx prisma validate
+      - run: npm run db:deploy
+      - run: npm run check
+      - run: npm run build
+      - run: npm test
+      - name: Shell script syntax
+        run: for script in scripts/*.sh; do bash -n "$script"; done
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm --prefix web audit --omit=dev --audit-level=high

@@ -1,0 +1,20 @@
+# For a TLS-terminating tunnel on the SAME VPS; bind only loopback.
+# Public hostname is managed by your tunnel provider. Never forward port 8080 publicly.
+server {
+ listen 127.0.0.1:8080; server_name _;
+ root /opt/rexmarket/web/dist; index index.html;
+ add_header X-Content-Type-Options nosniff always;
+ add_header Referrer-Policy no-referrer always;
+ add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" always;
+ location /api/ {
+  client_max_body_size 6m;
+  proxy_pass http://127.0.0.1:3000/;
+  proxy_set_header Host $host;
+  proxy_set_header Origin $http_origin;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_buffering off; proxy_read_timeout 90s;
+ }
+ location / { try_files $uri $uri/ /index.html; }
+ location ~ /\. { deny all; }
+}
